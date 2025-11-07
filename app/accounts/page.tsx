@@ -13,17 +13,17 @@ type Acc = {
 export default function Accounts() {
   const [list, setList] = useState<Acc[]>([]);
   const [program, setProgram] = useState("");
-  const [balance, setBalance] = useState<number>(0);
+  // 残高は文字列で保持（空OK）→ 送信時に数値化
+  const [balanceText, setBalanceText] = useState<string>("");
   const [expires, setExpires] = useState<string>("");
   const [saving, setSaving] = useState(false);
 
   const load = async () => {
-    const { data, error } = await supabase
+    const { data } = await supabase
       .from("loyalty_accounts")
       .select("id,program,balance,expires_at")
       .order("created_at", { ascending: false });
-
-    if (!error) setList((data ?? []) as any);
+    setList((data ?? []) as any);
   };
 
   useEffect(() => {
@@ -37,18 +37,24 @@ export default function Accounts() {
       return;
     }
 
+    // ログインチェック
+    const { data: auth } = await supabase.auth.getUser();
+    const userId = auth.user?.id ?? null;
+    if (!userId) {
+      alert("まず /login でサインインしてください（メールのMagic Linkを開く）");
+      return;
+    }
+
+    // 数値化（空 or 不正は0）
+    const amt = Number(balanceText.replace(/[^\d.-]/g, ""));
+    const balance = Number.isFinite(amt) ? amt : 0;
+
     setSaving(true);
     try {
-      const { data: auth } = await supabase.auth.getUser();
-      const userId = auth.user?.id ?? null;
-
-      // 数値が空の場合は0に
-      const amt = Number.isFinite(balance) ? balance : 0;
-
+      // user_id は送らない（Supabase側で default auth.uid() を設定済み）
       const { error } = await supabase.from("loyalty_accounts").insert({
-        user_id: userId,
         program: name,
-        balance: amt,
+        balance,
         expires_at: expires || null,
       });
 
@@ -58,7 +64,7 @@ export default function Accounts() {
       }
 
       setProgram("");
-      setBalance(0);
+      setBalanceText("");
       setExpires("");
       await load();
     } finally {
@@ -78,19 +84,22 @@ export default function Accounts() {
             value={program}
             onChange={(e) => setProgram(e.target.value)}
           />
+
+          {/* 残高：text + inputMode=numeric で空を許容 */}
           <input
             aria-label="残高"
+            inputMode="numeric"
             className="border p-2 rounded bg-white text-gray-900
                        dark:bg-zinc-800 dark:text-zinc-50"
-            type="number"
-            min={0}
-            step={1}
-            value={Number.isFinite(balance) ? balance : 0}
+            placeholder="0"
+            value={balanceText}
             onChange={(e) => {
-              const v = e.target.value;
-              setBalance(v === "" ? 0 : Number(v));
+              // 数字・小数点・ハイフン以外は除去（必要に応じて調整）
+              const v = e.target.value.replace(/[^\d.-]/g, "");
+              setBalanceText(v);
             }}
           />
+
           <input
             aria-label="有効期限"
             className="border p-2 rounded bg-white text-gray-900
@@ -99,10 +108,14 @@ export default function Accounts() {
             value={expires}
             onChange={(e) => setExpires(e.target.value)}
           />
+
           <Button onClick={add} disabled={saving}>
             {saving ? "追加中…" : "追加"}
           </Button>
         </div>
+        <p className="text-xs opacity-70 mt-1">
+          ※ 追加できない場合は、/login でサインイン後に再実行してください。
+        </p>
       </Card>
 
       <Card title="アカウント一覧">
