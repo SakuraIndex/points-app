@@ -1,0 +1,39 @@
+# ===============================
+# 🌸 Sakura Points プロジェクト用
+# ===============================
+
+# --- Node & Next.js ---
+node_modules/
+.next/
+out/
+dist/
+build/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# --- 環境変数ファイル（機密情報）---
+.env*
+!.env.example
+
+# --- OS / エディタ関連 ---
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+*.bak
+*.tmp
+
+# --- IDE設定ファイル ---
+.vscode/
+.idea/
+*.code-workspace
+
+# --- その他 ---
+coverage/
+logs/
+.cache/
+.vercel/
+.supabase/
